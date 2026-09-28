@@ -1,55 +1,60 @@
 # Notification producer, consumer, topic/s and event/s
 
-## Topic configs
+## Topic configs (Notification Events Output)
 kubectl exec -it kafka-0 -- kafka-topics \
   --bootstrap-server kafka-service:9092 \
   --create \
-  --topic <topic name> \
-  --partitions <partion number> \
-  --replication-factor <replication factor> \
-  --config retention.ms= <retention period> \
-  --config cleanup.policy= <cleanup policy> \
-  --config min.insync.replicas= <minimum in-sync replicas> \
-  --config compression.type= <compression algorithm> \
-  --config max.message.bytes= <max message size>
+  --topic digital-payments.notifications \
+  --partitions 6 \
+  --replication-factor 3 \
+  --config retention.ms=86400000 \
+  --config cleanup.policy=delete \
+  --config min.insync.replicas=2 \
+  --config compression.type=snappy \
+  --config max.message.bytes=1048576
 
-  ### Consumer configs
-
+### Consumer configs
 kubectl exec -it kafka-0 -- kafka-console-consumer \
   --bootstrap-server kafka-service:9092 \
-  --topic <topic name> \
+  --topic digital-payments.lifecycle \
   --property parse.key=true \
   --property key.deserializer=org.apache.kafka.common.serialization.StringDeserializer \
   --property value.deserializer=org.apache.kafka.common.serialization.StringDeserializer \
-  --group <consumer group name> \
-  --property max.poll.records= <value> \
-  --property session.timeout.ms=<value>  \ 
-  --property heartbeat.interval.ms=<value>  \
-  --property auto.offset.reset=<value>  \ 
-  --property enable.auto.commit=<value>  \
-  --property auto.commit.interval.ms=<value>  \
-  --property max.poll.interval.ms=<value>  \
-  --property fetch.min.bytes=<value>  \  
-  --property fetch.max.wait.ms=<value>  \  
-  --property max.partition.fetch.bytes=<value>  \ 
-  --property partition.assignment.strategy=<value> 
+  --group notification-service \
+  --property max.poll.records=1000 \
+  --property session.timeout.ms=45000 \
+  --property heartbeat.interval.ms=15000 \
+  --property auto.offset.reset=earliest \
+  --property enable.auto.commit=true \
+  --property auto.commit.interval.ms=3000 \
+  --property max.poll.interval.ms=60000 \
+  --property fetch.min.bytes=512 \
+  --property fetch.max.wait.ms=1000 \
+  --property max.partition.fetch.bytes=2097152 \
+  --property partition.assignment.strategy=cooperative-sticky
 
 
-### Producer configs
-
+### Producer configs (Notification Events Producer)
+### Publishes to: digital-payments.notifications topic
 kubectl exec -it kafka-0 -- kafka-console-producer \
   --bootstrap-server kafka-service:9092 \
-  --topic <topic name> \
+  --topic digital-payments.notifications \
   --property parse.key=true \
   --property key.separator=: \
-  --property key.serializer=org.apache.kafka.common.serialization.StringSerializer \
-  --property value.serializer=org.apache.kafka.common.serialization.StringSerializer \
-  --property acks=<value> \
-  --property retries=<value>  \
-  --property max.in.flight.requests.per.connection=<value>  \
-  --property enable.idempotence=<value>  \
-  --property compression.type= <value>  \
-  --property linger.ms=<value>  \
-  --property batch.size=<value>  \
-  --property delivery.timeout.ms=<value>  \
-  --property request.timeout.ms=<value> 
+  --producer-property acks=1 \
+  --producer-property enable.idempotence=true \
+  --producer-property max.in.flight.requests.per.connection=10 \
+  --producer-property compression.type=snappy \
+  --producer-property linger.ms=5 \
+  --producer-property batch.size=32768 \
+  --producer-property request.timeout.ms=5000 \
+  --producer-property delivery.timeout.ms=10000
+
+
+## Notification Channels:
+- **SMS**: immediate, 100% delivery guarantee via carrier
+- **Email**: standard, may take a few seconds
+- **Push**: app-native notifications (not shown in examples)
+- **In-App**: browser notifications
+### Producer configs
+
